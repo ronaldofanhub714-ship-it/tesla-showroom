@@ -1,0 +1,55 @@
+import { createSessionContext, type PagesEnv } from '../../lib/supabaseSession';
+import type { Order } from '../../lib/types';
+
+const JSON_HEADERS = { 'Content-Type': 'application/json' };
+
+function json(body: unknown, status: number, extraHeaders?: Headers) {
+  const headers = new Headers(JSON_HEADERS);
+  if (extraHeaders) extraHeaders.forEach((v, k) => headers.append(k, v));
+  return new Response(JSON.stringify(body), { status, headers });
+}
+
+export const onRequestPost: PagesFunction<PagesEnv> = async (context) => {
+  const { supabase, user, responseHeaders } = await createSessionContext(context.request, context.env);
+
+  if (!user) return json({ error: 'Unauthorized' }, 401, responseHeaders);
+
+  let body: { vin?: unknown };
+  try {
+    body = await context.request.json();
+  } catch {
+    return json({ error: 'Invalid JSON' }, 400, responseHeaders);
+  }
+
+  const vin = typeof body.vin === 'string' ? body.vin.trim() : '';
+  if (!vin) return json({ error: 'vin is required' }, 400, responseHeaders);
+
+  // Resolve the vehicle and confirm it's still available (anon read is fine — public RLS).
+  const { data: vehicle, error: vehicleError } = await supabase
+    .from('vehicles')
+    .select('id, price, inventory_status')
+    .eq('vin', vin)
+    .single();
+
+  if (vehicleError || !vehicle) {
+    return json({ error: 'Vehicle not found' }, 404, responseHeaders);
+  }
+  if (vehicle.inventory_status !== 'available') {
+    return json({ error: 'Vehicle is no longer available' }, 409, responseHeaders);
+  }
+
+  const { data, error } = await supabase
+    .from('orders')
+    .insert({
+      user_id: user.id,
+      vehicle_id: vehicle.id,
+      total_amount: vehicle.price,
+      status: 'pending',
+    })
+    .select('id, vehicle_id, total_amount, status, created_at')
+    .single();
+
+  if (error) return json({ error: error.message }, 500, responseHeaders);
+
+  return json(data as Order, 201, responseHeaders);
+};
