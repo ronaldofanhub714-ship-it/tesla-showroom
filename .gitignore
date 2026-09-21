@@ -1,0 +1,39 @@
+# ── Dependencies ───────────────────────────────────────────────
+node_modules/
+.pnp
+.pnp.js
+
+# ── Next.js / OpenNext build output ─────────────────────────────
+.next/
+.open-next/
+out/
+build/
+
+# ── Cloudflare Wrangler local state ─────────────────────────────
+.wrangler/
+worker/.wrangler/
+# Local-only secrets file used by `wrangler dev` (never commit)
+.dev.vars
+worker/.dev.vars
+
+# ── Environment variables ───────────────────────────────────────
+# Only .env.example is committed
+.env
+.env.local
+.env.*.local
+
+# ── TypeScript ──────────────────────────────────────────────────
+*.tsbuildinfo
+next-env.d.ts
+
+# ── Logs / debug ────────────────────────────────────────────────
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# ── OS / editor ─────────────────────────────────────────────────
+.DS_Store
+*.pem
+.vscode/
+.idea/
