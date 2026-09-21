@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'worker/**'  # Only trigger when worker code changes
+      - 'worker/**'
 
 jobs:
   deploy:
@@ -17,8 +17,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: worker/package-lock.json
+          # Removed cache configuration — no lockfile exists yet
       
       - name: Install dependencies
         working-directory: worker
