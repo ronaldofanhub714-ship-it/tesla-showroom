@@ -1,134 +1,89 @@
-  -- ==========================================================
-  -- 0️⃣   Extensions (required for gen_random_uuid() etc.)
-  -- ==========================================================
-  -- pgcrypto provides gen_random_uuid() and other crypto functions
-  CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+-- 1) Wipe conflicting tables (safe for a fresh dev project)
+DROP TABLE IF EXISTS orders CASCADE;
+DROP TABLE IF EXISTS investment_plans CASCADE;
+DROP TABLE IF EXISTS crypto_wallets CASCADE;
+DROP TABLE IF EXISTS vehicles CASCADE;
+DROP TABLE IF EXISTS market_data CASCADE;
+DROP TABLE IF EXISTS market_tickers CASCADE;
 
-  -- ---------------------------------------------------------
-  -- 1️⃣   CREATE CORE TABLES (public read‑only for everyone)
-  -- ---------------------------------------------------------
-  -- ---- Vehicles ------------------------------------------------
-  CREATE TABLE vehicles (
-    id                 uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-    vin                text UNIQUE NOT NULL,
-    model              text NOT NULL,
-    trim               text,
-    msrp_cents         bigint NOT NULL,
-    features_json      jsonb,
-    image_url          text,
-    inventory_status   text NOT NULL DEFAULT 'available',
-    created_at         timestamp DEFAULT now()
-  );
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
-  -- ---- Investment Plans -----------------------------------------
-  CREATE TABLE investment_plans (
-    id                uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id           uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    name              text NOT NULL,
-    goal              text,
-    horizon_years     integer,
-    risk_score        smallint,
-    allocation_json   jsonb,
-    target_amount_cents bigint,
-    created_at        timestamp DEFAULT now(),
-    status            text DEFAULT 'draft'   -- draft, funded, closed
-  );
+-- 2) Canonical tables
+CREATE TABLE crypto_wallets (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  balance_crypto NUMERIC DEFAULT 0.00,
+  balance_fiat NUMERIC DEFAULT 0.00,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(user_id)
+);
 
-  -- ---- Crypto Wallets -------------------------------------------
-  CREATE TABLE crypto_wallets (
-    user_id           uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-    address           text UNIQUE,
-    balance_crypto    bigint DEFAULT 0,
-    updated_at        timestamp DEFAULT now()
-  );
+CREATE TABLE investment_plans (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  plan_name VARCHAR(255) NOT NULL,
+  amount NUMERIC NOT NULL,
+  status VARCHAR(50) DEFAULT 'active' CHECK (status IN ('active','cancelled','completed')),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
 
-  -- ---- Orders ---------------------------------------------------
-  CREATE TABLE orders (
-    id                uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id           uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    vehicle_id        uuid NOT NULL REFERENCES vehicles(id) ON DELETE RESTRICT,
-    selected_options  jsonb,
-    financing_type    text,
-    payment_method    text,               -- 'crypto' | 'fiat' | 'hybrid'
-    status            text DEFAULT 'draft',
-    created_at        timestamp DEFAULT now(),
-    vin_issued        text
-  );
+CREATE TABLE vehicles (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  vin VARCHAR(17) UNIQUE NOT NULL,
+  model VARCHAR(100) NOT NULL,
+  price NUMERIC NOT NULL,
+  image_url TEXT,
+  inventory_status VARCHAR(50) DEFAULT 'available' CHECK (inventory_status IN ('available','sold')),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
 
-  -- ---- Market Tickers -------------------------------------------
-  CREATE TABLE market_tickers (
-    symbol          text PRIMARY KEY,
-    price_cents     bigint,
-    change_pct      numeric,
-    fetched_at      timestamp DEFAULT now()
-  );
+CREATE TABLE market_data (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  symbol VARCHAR(20) UNIQUE NOT NULL,
+  price NUMERIC NOT NULL,
+  change_percent NUMERIC,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
 
-  -- ---------------------------------------------------------
-  -- 2️⃣   ENABLE ROW‑LEVEL SECURITY (RLS) ON EACH TABLE
-  -- ---------------------------------------------------------
-  ALTER TABLE vehicles ENABLE ROW LEVEL SECURITY;
-  ALTER TABLE investment_plans ENABLE ROW LEVEL SECURITY;
-  ALTER TABLE crypto_wallets ENABLE ROW LEVEL SECURITY;
-  ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
-  ALTER TABLE market_tickers ENABLE ROW LEVEL SECURITY;
+CREATE TABLE orders (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  vehicle_id UUID REFERENCES vehicles(id) ON DELETE SET NULL,
+  total_amount NUMERIC NOT NULL,
+  status VARCHAR(50) DEFAULT 'pending' CHECK (status IN ('pending','completed','cancelled')),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
 
-  -- ---------------------------------------------------------
-  -- 4️⃣   POLICY DEFINITIONS (who can read / insert / update / delete)
-  -- ---------------------------------------------------------
-  -- ---- Vehicles – read‑only for everyone
-  CREATE POLICY "vehicles_select"
-    ON vehicles FOR SELECT
-    USING (true);
+-- 3) RLS
+ALTER TABLE crypto_wallets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE investment_plans ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vehicles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE market_data ENABLE ROW LEVEL SECURITY;
+ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 
-  -- ---- Investment Plans policies (user‑scoped)
-  CREATE POLICY "investment_plans_select"
-    ON investment_plans FOR SELECT
-    USING (true);   -- you can tighten later
+CREATE POLICY wallets_select ON crypto_wallets FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY wallets_insert ON crypto_wallets FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY wallets_update ON crypto_wallets FOR UPDATE USING (auth.uid() = user_id);
 
-  CREATE POLICY "investment_plans_insert"
-    ON investment_plans FOR INSERT
-    WITH CHECK (auth.uid() = user_id);
+CREATE POLICY plans_select ON investment_plans FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY plans_insert ON investment_plans FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY plans_update ON investment_plans FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY plans_delete ON investment_plans FOR DELETE USING (auth.uid() = user_id);
 
-  CREATE POLICY "investment_plans_update"
-    ON investment_plans FOR UPDATE
-    USING (auth.uid() = user_id);
+CREATE POLICY vehicles_select ON vehicles FOR SELECT USING (true);
+CREATE POLICY market_select  ON market_data FOR SELECT USING (true);
 
-  CREATE POLICY "investment_plans_delete"
-    ON investment_plans FOR DELETE
-    USING (auth.uid() = user_id);
+CREATE POLICY orders_select ON orders FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY orders_insert ON orders FOR INSERT WITH CHECK (auth.uid() = user_id);
 
-  -- ---- Crypto Wallets policies (user‑scoped)
-  CREATE POLICY "crypto_wallets_select"
-    ON crypto_wallets FOR SELECT
-    USING (true);
+-- 4) Seed
+INSERT INTO vehicles (vin, model, price, image_url, inventory_status) VALUES
+  ('5YJ3E1EA1KF123456','Tesla Model 3 Long Range',47990,'https://images.unsplash.com/photo-1560958089-b8a1929cea89?w=1600','available'),
+  ('5YJXCDE26MF123457','Tesla Model X Plaid',108990,'https://images.unsplash.com/photo-1617788138017-80ad40651399?w=1600','available')
+ON CONFLICT (vin) DO NOTHING;
 
-  CREATE POLICY "crypto_wallets_insert"
-    ON crypto_wallets FOR INSERT
-    WITH CHECK (auth.uid() = user_id);
-
-  CREATE POLICY "crypto_wallets_update"
-    ON crypto_wallets FOR UPDATE
-    USING (auth.uid() = user_id);
-
-  -- ---- Orders policies (user‑scoped)
-  CREATE POLICY "orders_select"
-    ON orders FOR SELECT
-    USING (auth.uid() = user_id);
-
-  CREATE POLICY "orders_insert"
-    ON orders FOR INSERT
-    WITH CHECK (auth.uid() = user_id);
-
-  CREATE POLICY "orders_update"
-    ON orders FOR UPDATE
-    USING (auth.uid() = user_id);
-
-  CREATE POLICY "orders_delete"
-    ON orders FOR DELETE
-    USING (auth.uid() = user_id);
-
-  -- ---- Market Tickers – read‑only for everyone
-  CREATE POLICY "market_tickers_select"
-    ON market_tickers FOR SELECT
-    USING (true);
-
+INSERT INTO market_data (symbol, price, change_percent) VALUES
+  ('BTC',0,0),('ETH',0,0),('TSLA',0,0)
+ON CONFLICT (symbol) DO NOTHING;
