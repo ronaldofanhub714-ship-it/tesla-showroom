@@ -9,7 +9,6 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    name: Deploy to Cloudflare Workers
     steps:
       - uses: actions/checkout@v4
       
@@ -17,7 +16,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          # Removed cache configuration — no lockfile exists yet
       
       - name: Install dependencies
         working-directory: worker
@@ -29,5 +27,3 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           workingDirectory: 'worker'
           command: deploy
-
-        #true
