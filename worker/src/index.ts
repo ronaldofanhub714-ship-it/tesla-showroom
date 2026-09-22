@@ -1,29 +1,25 @@
-import { createClient } from '@supabase/supabase-js';
-
-interface Env {
-  NEXT_PUBLIC_SUPABASE_URL: string;
-  SUPABASE_SERVICE_SECRET: string;
-}
-
-interface CoinGeckoResponse {
-  [id: string]: { usd: number; usd_24h_change: number | null };
-}
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const COINGECKO_URL =
   'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,tesla&vs_currencies=usd&include_24hr_change=true';
 
-const SYMBOL_MAP: Record<string, string> = {
+const SYMBOL_MAP = {
   bitcoin: 'BTC',
   ethereum: 'ETH',
   tesla: 'TSLA',
 };
 
-async function refreshMarketData(env: Env): Promise<void> {
+async function refreshMarketData(env) {
   const supabase = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_SECRET);
 
-  const res = await fetch(COINGECKO_URL);
-  if (!res.ok) throw new Error(`CoinGecko responded ${res.status}`);
-  const data = (await res.json()) as CoinGeckoResponse;
+  const res = await fetch(COINGECKO_URL, {
+    headers: {
+      'Accept': 'application/json',
+      'User-Agent': 'InvestTradeDrive-Cron/1.0 (+https://tesla-showroom.pages.dev)'
+    }
+  });
+  if (!res.ok) throw new Error(`CoinGecko responded ${res.status} ${res.statusText}`);
+  const data = await res.json();
 
   const rows = Object.entries(SYMBOL_MAP)
     .filter(([id]) => data[id]?.usd != null)
@@ -40,13 +36,13 @@ async function refreshMarketData(env: Env): Promise<void> {
 }
 
 export default {
-  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+  async scheduled(event, env, ctx) {
     ctx.waitUntil(
       refreshMarketData(env).catch((err) => console.error('[cron] failed:', err))
     );
   },
 
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request, env) {
     const url = new URL(request.url);
     
     if (url.pathname === '/health') {
@@ -55,14 +51,13 @@ export default {
       });
     }
     
-    // Temporary manual trigger for debugging
     if (url.pathname === '/refresh') {
       try {
         await refreshMarketData(env);
         return new Response(JSON.stringify({ success: true, message: 'Market data refreshed' }), {
           headers: { 'Content-Type': 'application/json' },
         });
-      } catch (err: any) {
+      } catch (err) {
         return new Response(JSON.stringify({ error: err.message }), {
           status: 500,
           headers: { 'Content-Type': 'application/json' },
