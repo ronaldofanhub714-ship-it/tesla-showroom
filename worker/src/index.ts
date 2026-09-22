@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
-const COINGECKO_URL =
-  'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,tesla&vs_currencies=usd&include_24hr_change=true';
+// CoinCap API - free, no key, no cloud IP blocking
+const COINCAP_URL = 'https://api.coincap.io/v2/assets?ids=bitcoin,ethereum,tesla';
 
 const SYMBOL_MAP = {
   bitcoin: 'BTC',
@@ -12,21 +12,22 @@ const SYMBOL_MAP = {
 async function refreshMarketData(env) {
   const supabase = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_SECRET);
 
-  const res = await fetch(COINGECKO_URL, {
+  const res = await fetch(COINCAP_URL, {
     headers: {
       'Accept': 'application/json',
       'User-Agent': 'InvestTradeDrive-Cron/1.0 (+https://tesla-showroom.pages.dev)'
     }
   });
-  if (!res.ok) throw new Error(`CoinGecko responded ${res.status} ${res.statusText}`);
+  if (!res.ok) throw new Error(`CoinCap responded ${res.status} ${res.statusText}`);
   const data = await res.json();
 
-  const rows = Object.entries(SYMBOL_MAP)
-    .filter(([id]) => data[id]?.usd != null)
-    .map(([id, symbol]) => ({
-      symbol,
-      price: data[id].usd,
-      change_percent: data[id].usd_24h_change,
+  // CoinCap returns { data: [...] }
+  const rows = data.data
+    .filter(asset => SYMBOL_MAP[asset.id])
+    .map(asset => ({
+      symbol: SYMBOL_MAP[asset.id],
+      price: parseFloat(asset.priceUsd),
+      change_percent: parseFloat(asset.changePercent24Hr),
     }));
 
   const { error } = await supabase.from('market_data').upsert(rows, { onConflict: 'symbol' });
@@ -64,8 +65,7 @@ export default {
         });
       }
     }
-
-    //deploy
+    
     return new Response('Not found', { status: 404 });
   },
 };
