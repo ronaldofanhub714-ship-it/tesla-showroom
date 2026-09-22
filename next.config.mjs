@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'export', // CRITICAL: Generates static HTML in /out folder
-  images: { unoptimized: true }, // Required for static export
+  distDir: '.', // Export to root instead of /out
+  images: { unoptimized: true },
 };
 
 export default nextConfig;
