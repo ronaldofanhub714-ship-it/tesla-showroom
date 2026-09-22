@@ -1,0 +1,132 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =========================================
+   DYNAMIC THEME TOKENS
+   Injected by ThemeContext based on route/car
+   ========================================= */
+:root {
+  /* Default Dark Theme (Invest) */
+  --theme-bg: #0a0a0f;
+  --theme-surface: #13131a;
+  --theme-border: rgba(255, 255, 255, 0.08);
+  --theme-text: #e4e4e7;
+  --theme-text-muted: #9ca3af;
+  --theme-accent: #6366f1; 
+  --theme-accent-glow: rgba(99, 102, 241, 0.15);
+  
+  /* 3D System Constants */
+  --d3-depth: 800px;
+  --d3-radius: 16px;
+}
+
+/* Light Theme Override (Crypto) */
+[data-theme="light"] {
+  --theme-bg: #ffffff;
+  --theme-surface: #f4f4f5;
+  --theme-border: rgba(0, 0, 0, 0.08);
+  --theme-text: #09090b;
+  --theme-text-muted: #52525b;
+  --theme-accent: #000000;
+  --theme-accent-glow: rgba(0, 0, 0, 0.05);
+}
+
+body {
+  background-color: var(--theme-bg);
+  color: var(--theme-text);
+  transition: background-color 0.4s ease, color 0.4s ease;
+  font-family: system-ui, -apple-system, sans-serif;
+  overflow-x: hidden;
+}
+
+/* =========================================
+   3D CARD SYSTEM (CodeFronts Adaptation)
+   Uses Shared Vanishing Point for cohesion
+   ========================================= */
+.d3-stage {
+  perspective: var(--d3-depth);
+  perspective-origin: 50% 50%;
+  width: 100%;
+  transform-style: preserve-3d;
+}
+
+.d3-rail {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+  padding: 2rem;
+  transform-style: preserve-3d;
+}
+
+.d3-card {
+  position: relative;
+  transform-style: preserve-3d;
+  transform: rotateY(12deg) translateZ(0);
+  transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), box-shadow 0.4s ease;
+  
+  /* Dynamic gradient using theme surface + accent */
+  background: linear-gradient(
+    145deg, 
+    var(--theme-surface), 
+    color-mix(in srgb, var(--theme-surface) 80%, black)
+  );
+  
+  border: 1px solid var(--theme-border);
+  border-radius: var(--d3-radius);
+  padding: 1.5rem;
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  
+  /* Shared scene shadow */
+  box-shadow: 
+    0 20px 40px -10px rgba(0,0,0,0.3),
+    0 0 0 1px rgba(255,255,255,0.05) inset;
+  overflow: hidden;
+}
+
+/* Hover Effect: Cards flatten and lift toward viewer */
+.d3-card:hover {
+  transform: rotateY(0deg) translateZ(20px);
+  box-shadow: 
+    0 30px 60px -15px var(--theme-accent-glow),
+    0 0 0 1px var(--theme-accent) inset;
+  z-index: 10;
+}
+
+/* Accent Glow Strip at Bottom */
+.d3-card::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--theme-accent);
+  opacity: 0.8;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.3s ease;
+}
+
+.d3-card:hover::after {
+  transform: scaleX(1);
+}
+
+/* =========================================
+   UTILITIES
+   ========================================= */
+.glass-panel {
+  background: color-mix(in srgb, var(--theme-surface) 70%, transparent);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--theme-border);
+  border-radius: var(--d3-radius);
+}
+
+.text-gradient {
+  background: linear-gradient(to right, var(--theme-text), var(--theme-accent));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
