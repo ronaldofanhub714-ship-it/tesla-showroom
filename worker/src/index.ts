@@ -1,34 +1,47 @@
 import { createClient } from '@supabase/supabase-js';
 
-// CoinCap API - free, no key, no cloud IP blocking
-const COINCAP_URL = 'https://api.coincap.io/v2/assets?ids=bitcoin,ethereum,tesla';
+// Messari free API - no key, no cloud IP blocking, reliable
+const MESSARI_URL = 'https://data.messari.io/api/v2/assets?fields=symbol,price_usd,percent_change_last_24_hours&limit=100';
 
 const SYMBOL_MAP = {
-  bitcoin: 'BTC',
-  ethereum: 'ETH',
-  tesla: 'TSLA',
+  BTC: 'BTC',
+  ETH: 'ETH',
+  TSLA: 'TSLA', // Note: Messari doesn't have TSLA; we'll handle this below
 };
 
 async function refreshMarketData(env) {
   const supabase = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_SECRET);
 
-  const res = await fetch(COINCAP_URL, {
+  const res = await fetch(MESSARI_URL, {
     headers: {
       'Accept': 'application/json',
       'User-Agent': 'InvestTradeDrive-Cron/1.0 (+https://tesla-showroom.pages.dev)'
     }
   });
-  if (!res.ok) throw new Error(`CoinCap responded ${res.status} ${res.statusText}`);
+  if (!res.ok) throw new Error(`Messari responded ${res.status} ${res.statusText}`);
   const data = await res.json();
 
-  // CoinCap returns { data: [...] }
-  const rows = data.data
-    .filter(asset => SYMBOL_MAP[asset.id])
-    .map(asset => ({
-      symbol: SYMBOL_MAP[asset.id],
-      price: parseFloat(asset.priceUsd),
-      change_percent: parseFloat(asset.changePercent24Hr),
-    }));
+  // Map crypto assets
+  const rows = [];
+  for (const asset of data.data) {
+    if (SYMBOL_MAP[asset.symbol]) {
+      rows.push({
+        symbol: SYMBOL_MAP[asset.symbol],
+        price: parseFloat(asset.metrics?.market_data?.price_usd || 0),
+        change_percent: parseFloat(asset.metrics?.market_data?.percent_change_last_24_hours || 0),
+      });
+    }
+  }
+
+  // Fallback for TSLA (Messari doesn't track stocks)
+  // Use a static placeholder until we add a stock API later
+  if (!rows.find(r => r.symbol === 'TSLA')) {
+    rows.push({
+      symbol: 'TSLA',
+      price: 250.00, // Placeholder - will be replaced in Part 6 with a proper stock API
+      change_percent: 0,
+    });
+  }
 
   const { error } = await supabase.from('market_data').upsert(rows, { onConflict: 'symbol' });
   if (error) throw new Error(`Upsert failed: ${error.message}`);
