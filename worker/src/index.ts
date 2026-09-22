@@ -1,47 +1,38 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Messari free API - no key, no cloud IP blocking, reliable
-const MESSARI_URL = 'https://data.messari.io/api/v2/assets?fields=symbol,price_usd,percent_change_last_24_hours&limit=100';
-
-const SYMBOL_MAP = {
-  BTC: 'BTC',
-  ETH: 'ETH',
-  TSLA: 'TSLA', // Note: Messari doesn't have TSLA; we'll handle this below
-};
+// Binance public API - no key, no cloud IP blocking, always available
+const BINANCE_URL = 'https://api.binance.com/api/v3/ticker/24hr?symbols=["BTCUSDT","ETHUSDT"]';
 
 async function refreshMarketData(env) {
   const supabase = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_SECRET);
 
-  const res = await fetch(MESSARI_URL, {
+  const res = await fetch(BINANCE_URL, {
     headers: {
       'Accept': 'application/json',
       'User-Agent': 'InvestTradeDrive-Cron/1.0 (+https://tesla-showroom.pages.dev)'
     }
   });
-  if (!res.ok) throw new Error(`Messari responded ${res.status} ${res.statusText}`);
+  if (!res.ok) throw new Error(`Binance responded ${res.status} ${res.statusText}`);
   const data = await res.json();
 
-  // Map crypto assets
-  const rows = [];
-  for (const asset of data.data) {
-    if (SYMBOL_MAP[asset.symbol]) {
-      rows.push({
-        symbol: SYMBOL_MAP[asset.symbol],
-        price: parseFloat(asset.metrics?.market_data?.price_usd || 0),
-        change_percent: parseFloat(asset.metrics?.market_data?.percent_change_last_24_hours || 0),
-      });
-    }
-  }
+  // Map Binance symbols to our schema
+  const symbolMap = {
+    BTCUSDT: 'BTC',
+    ETHUSDT: 'ETH'
+  };
 
-  // Fallback for TSLA (Messari doesn't track stocks)
-  // Use a static placeholder until we add a stock API later
-  if (!rows.find(r => r.symbol === 'TSLA')) {
-    rows.push({
-      symbol: 'TSLA',
-      price: 250.00, // Placeholder - will be replaced in Part 6 with a proper stock API
-      change_percent: 0,
-    });
-  }
+  const rows = data.map(ticker => ({
+    symbol: symbolMap[ticker.symbol],
+    price: parseFloat(ticker.lastPrice),
+    change_percent: parseFloat(ticker.priceChangePercent)
+  })).filter(row => row.symbol); // Filter out any unmapped symbols
+
+  // Add TSLA placeholder (Binance doesn't support stocks)
+  rows.push({
+    symbol: 'TSLA',
+    price: 250.00,
+    change_percent: 0
+  });
 
   const { error } = await supabase.from('market_data').upsert(rows, { onConflict: 'symbol' });
   if (error) throw new Error(`Upsert failed: ${error.message}`);
