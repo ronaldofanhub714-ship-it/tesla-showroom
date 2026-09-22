@@ -2,9 +2,9 @@
   "name": "invest-trade-drive-cron",
   "version": "0.1.0",
   "private": true,
-  "main": "src/index.ts",
+  "main": "src/index.js",
   "scripts": {
-    "dev": "wrangler dev",
+    "build": "tsc",
     "deploy": "wrangler deploy"
   },
   "dependencies": {
