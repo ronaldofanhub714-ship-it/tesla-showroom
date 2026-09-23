@@ -1,16 +1,12 @@
-name = "invest-trade-drive-cron"
-main = "src/index.ts"
-compatibility_date = "2024-09-25"
-compatibility_flags = ["nodejs_compat"]
-
-# Fire the scheduled() handler every 5 minutes.
-[triggers]
-crons = ["*/5 * * * *"]
-
-# Public value — safe to commit. The cron worker needs the Supabase URL at runtime.
-[vars]
-NEXT_PUBLIC_SUPABASE_URL = "https://ztcejxyfcadzxoobqkaa.supabase.co"
-
-# SUPABASE_SERVICE_SECRET is NOT here — it's a secret.
-# Set it via CI (wrangler secret put) or the Cloudflare dashboard:
-#   Workers & Pages → invest-trade-drive-cron → Settings → Variables and Secrets
+  export default {
+    async fetch(request, env, ctx) {
+      const url = new URL(request.url);
+      // If the request is for a file that exists in the built `public` folder, let
+  the static handler serve it
+      if (url.pathname.startsWith('/assets/') || url.pathname === '/') return
+  fetch(request);
+      // Otherwise rewrite to index.html
+      return new Response(fetch('index.html', {headers: { 'Content-Type':
+  'text/html' } }));
+    }
+  };
