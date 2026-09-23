@@ -1,14 +1,19 @@
-  /** @type {import('next').NextConfig} */
-  const nextConfig = {
-    // 👇 tell Next to generate a fully static site
-    output: 'export',          // → writes everything to ./out
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  // Enable static HTML export
+  output: 'export',
 
-    // Optional but recommended for a clean URL base
-    basePath: '',              // keep it empty unless you use a custom sub‑path
+  // Optimize images for static export (next.js will inline them)
+  images: {
+    unoptimized: true,
+  },
 
-    // If you use image optimization locally, keep it unoptimized for export
-    images: { unoptimized: true },
+  // If you use environment variables, you can expose them here
+  // env: {
+  //   NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
+  // },
 
-    // If you have custom rewrites or redirects, keep them (they’ll be copied over)
-    // rewrites: async () => ({}),
-  };
+  // Any other custom config you need can go here
+};
+
+export default nextConfig;
