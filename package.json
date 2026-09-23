@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    **"export": "next export"**      // <-- add this line
+    "export": "next export"      // <-- add this line
 
   },
   "dependencies": {
