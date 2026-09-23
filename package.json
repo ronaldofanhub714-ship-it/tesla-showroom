@@ -1,12 +1,14 @@
-{
+ {
     "name": "invest-trade-drive",
     "private": true,
     "version": "0.1.0",
     "scripts": {
-    "install": "npm install",
-    "build": "next build",
-    "dev": "next dev"
-  },
+      "dev": "next dev",
+      "build": "next build",
+      "start": "next start",
+      "lint": "next lint",
+      "export": "true"
+    },
     "dependencies": {
       "@headlessui/react": "^2.1.0",
       "@heroicons/react": "^2.1.3",
