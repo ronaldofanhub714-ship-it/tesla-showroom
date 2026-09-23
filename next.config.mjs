@@ -1,15 +1,14 @@
-/** @type {import('next').NextConfig} 
-const nextConfig = {
-  output: 'export', // CRITICAL: Generates static HTML in /out folder
-  images: { unoptimized: true }, // Required for static export
-};
+  /** @type {import('next').NextConfig} */
+  const nextConfig = {
+    // 👇 tell Next to generate a fully static site
+    output: 'export',          // → writes everything to ./out
 
-export default nextConfig;*/
+    // Optional but recommended for a clean URL base
+    basePath: '',              // keep it empty unless you use a custom sub‑path
 
+    // If you use image optimization locally, keep it unoptimized for export
+    images: { unoptimized: true },
 
-/** @type {import('next').NextConfig} */
-const nextConfig = {
-  distDir: '.next', // Temporarily disable static export to test if site loads at all
-  images: { unoptimized: true },
-};
-export default nextConfig;
+    // If you have custom rewrites or redirects, keep them (they’ll be copied over)
+    // rewrites: async () => ({}),
+  };
