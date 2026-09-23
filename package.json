@@ -4,9 +4,9 @@
     "version": "0.1.0",
     "scripts": {
       "install": "npm install",
-      "build": "next build",                     // <-- creates ./out
+      "build": "next build",
       "dev": "next dev",
-      "export": "echo 'No separate export step needed – output: export handled by
+      "export": "echo 'No separate export step needed – output: export handled by 
   next build' || true"
     },
     "dependencies": {
